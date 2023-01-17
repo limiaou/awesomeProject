@@ -1,0 +1,533 @@
+version: '3.1'
+services:
+  mysql:
+    image: registry.connextpaas.com/library/mysql:5.7
+    volumes:
+      - /data/mysql/conf:/etc/mysql/conf.d
+      - /data/mysql/data:/var/lib/mysql
+      - /data/mysql/cnf/my.cnf:/etc/mysql/my.cnf
+    environment:
+      MYSQL_ROOT_PASSWORD: Connext@1qaz@WSX
+    ports:
+      - 3306:3306
+
+  consul:
+    image: registry.connextpaas.com/connextpaas/consul:1.4.4
+    ports:
+      - 8500:8500
+      - 8301:8301
+      - 8300:8300
+    volumes:
+      - /data/consul/data:/consul/data
+    links:
+      - etcd
+      - mysql
+    command: /bin/consul agent -server -bootstrap -data-dir=/consul/data  -node=server1 -ui -client=0.0.0.0
+
+  etcd:
+    image: registry.connextpaas.com/library/etcd:v3.3
+    volumes:
+      - /data/etcd-data:/etcd-data
+    ports:
+      - 127.0.0.1:2280:2280
+      - 2279:2279
+    command: /usr/local/bin/etcd --data-dir=/etcd-data --name node1 --initial-advertise-peer-urls http://127.0.0.1:2280 --listen-peer-urls http://0.0.0.0:2280 --advertise-client-urls http://127.0.0.1:2279 --listen-client-urls http://0.0.0.0:2279 --initial-cluster node1=http://127.0.0.1:2280
+
+  frame-discovery:
+    image: registry.connextpaas.com/connextpaas/frame-discovery:20220803-da07db9e
+    links:
+      - mysql
+      - consul
+    ports:
+      - 5214:5214
+    environment:
+      CONSUL_ADDR: "http://10.255.202.21:8500"
+      CONSUL_HTTP_ADDR: "http://10.255.202.21:8500"
+      TZ: "Asia/Shanghai"
+    volumes:
+      - /data/docker_compose/config.toml:/config/config.toml
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  gateway:
+    image: registry.connextpaas.com/connextpaas/gateway:20220803-a0e731ef
+    links:
+      - mysql
+      - consul
+    ports:
+      - 8080:8080
+    environment:
+      LOG_HOST: "10.255.202.21"
+      LOG_PORT: "12201"
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      CONSUL_ADDR: "http://10.255.202.21:8500"
+      CONSUL_HTTP_ADDR: "http://10.255.202.21:8500"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  frame-config:
+    image: registry.connextpaas.com/connextpaas/frame-config:20220803-a53cb407
+    links:
+      - mysql
+      - consul
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    volumes:
+      - /data/docker_compose/config.toml:/config/config.toml
+    depends_on:
+      - frame-discovery
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-appcenter:
+    image: registry.connextpaas.com/connextpaas/service-b-appcenter:20220809-0344cb9b
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-cloudmgmt:
+    image: registry.connextpaas.com/connextpaas/service-b-cloudmgmt:20220808-b2a62c44
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-sysmgmt:
+    image: registry.connextpaas.com/connextpaas/service-b-sysmgmt:20220806-b11d61da
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-billcenter:
+    image: registry.connextpaas.com/connextpaas/service-b-billcenter:20220809-b9db40c5
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-cloud-operation:
+    image: registry.connextpaas.com/connextpaas/service-b-cloud-operation:20220803-bc71ce16
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-kubernetes:
+    image: registry.connextpaas.com/connextpaas/service-b-kubernetes:20220525-e43aa1f2
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-cloud-product:
+    image: registry.connextpaas.com/connextpaas/service-b-cloud-product:20220803-9144b240
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-cmdb:
+    image: registry.connextpaas.com/connextpaas/service-b-cmdb:20220808-53c0c3b0
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-s-micro-front-config:
+    image: registry.connextpaas.com/connextpaas/service-s-micro-front-config:20220623-cb156230
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  fileserver:
+    image: registry.connextpaas.com/connextpaas/fileserver:20220624-4b881830
+    volumes:
+      - /static:/static
+    links:
+      - consul
+    ports:
+      - 9998:9998
+    environment:
+      CONSUL_ADDR: "http://consul:8500"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  api-service-platform:
+    image: registry.connextpaas.com/connextpaas/api-service-platform:20220809-c50fd338
+    links:
+      - mysql
+      - consul
+    environment:
+      CONSUL_ADDR: "http://consul:8500"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  auth-service:
+    image: registry.connextpaas.com/connextpaas/auth-service:20210728-aaf90642
+    links:
+      - consul
+    environment:
+      CONSUL_ADDR: "http://consul:8500"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    ports:
+      - 8192:8192
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  k8snamespaceservice:
+    image: registry.connextpaas.com/connextpaas/k8snamespaceservice:20220426-c6c7ac69
+    links:
+      - mysql
+      - consul
+    environment:
+      CONSUL_ADDR: "http://consul:8500"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  k8scluster:
+    image: registry.connextpaas.com/connextpaas/k8scluster:20220525-51f002e-180imgbuild
+    links:
+      - mysql
+      - consul
+    environment:
+      CONSUL_ADDR: "http://consul:8500"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  k8sproject:
+    image: registry.connextpaas.com/connextpaas/k8sproject:20220525-6b20aef5
+    links:
+      - mysql
+      - consul
+    environment:
+      CONSUL_ADDR: "http://consul:8500"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  kubernete:
+    image: registry.connextpaas.com/connextpaas/kubernete:20220107-54ff7ae7
+    links:
+      - mysql
+      - consul
+    environment:
+      CONSUL_ADDR: "http://consul:8500"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  kubernete1.16:
+    image: registry.connextpaas.com/connextpaas/kubernete1.16:20210901-54d1c582
+    links:
+      - mysql
+      - consul
+    environment:
+      CONSUL_ADDR: "http://consul:8500"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+    depends_on:
+      - consul
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-s-authentication:
+    image: registry.connextpaas.com/connextpaas/service-s-authentication:20220809-7e65ed96
+    links:
+      - mysql
+      - consul
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-s-record-authentication:
+    image: registry.connextpaas.com/connextpaas/service-s-record-authentication:20220803-1f0e5ead
+    links:
+      - mysql
+      - consul
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-b-tenant:
+    image: registry.connextpaas.com/connextpaas/service-b-tenant:20220809-13e46729
+    links:
+      - mysql
+      - consul
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  service-s-license:
+    image: registry.connextpaas.com/connextpaas/service-s-license:20220810-d650ae7b
+    links:
+      - mysql
+      - consul
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    restart: on-failure:5
+
+  # service-s-devops:
+  #   image: registry.connextpaas.com/connextpaas/service-s-devops:v4.2.1.0
+  #   links:
+  #     - mysql
+  #     - consul
+  #   environment:
+  #     DISCOVERY_ADDR: "frame-discovery"
+  #     DISCOVERY_PORT: "5214"
+  #     TZ: "Asia/Shanghai"
+  #   depends_on:
+  #     - frame-config
+  #   healthcheck:
+  #     test: curl  http://consul:8500/v1/kv/micro/config/cache
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 2
+  #   restart: on-failure:5
+
+  service-b-secure:
+    image: registry.connextpaas.com/connextpaas/service-b-secure:20220701-6121baa7
+    links:
+      - mysql
+      - consul
+    environment:
+      DISCOVERY_ADDR: "frame-discovery"
+      DISCOVERY_PORT: "5214"
+      TZ: "Asia/Shanghai"
+    depends_on:
+      - frame-config
+    healthcheck:
+      test: curl  http://consul:8500/v1/kv/micro/config/cache
+      interval: 5s
+      timeout: 5s
+      retries: 2
+   # network_mode: "host"
+    restart: on-failure:5
+
+  micro-front-main:
+    image: registry.connextpaas.com/connextpaas/micro-front-main:20220809-426102c3
+    network_mode: "host"
+
+  micro-front-settingcenter:
+    image: registry.connextpaas.com/connextpaas/micro-front-settingcenter:20220806-e61d6c97
+    network_mode: "host"
+
+  micro-front-app:
+    image: registry.connextpaas.com/connextpaas/micro-front-app:20220803-056c6ddc
+    network_mode: "host"
+
+  micro-front-appcenter:
+    image: registry.connextpaas.com/connextpaas/micro-front-appcenter:20220808-7b379acd
+    network_mode: "host"
+
+  micro-front-financecenter:
+    image: registry.connextpaas.com/connextpaas/micro-front-financecenter:20220809-cc1ea803
+    network_mode: "host"
+
+  micro-front-cloudresourcecenter:
+    image: registry.connextpaas.com/connextpaas/micro-front-cloudresourcecenter:20220809-05e39242
+    network_mode: "host"
+
+  single-app-ack:
+    image: registry.connextpaas.com/connextpaas/single-app-ack:20220607-21677f9b
+    network_mode: "host"
+
+  micro-front-cmdb:
+    image: registry.connextpaas.com/connextpaas/micro-front-cmdb:20220809-fe316894
+    network_mode: "host"
+
+  micro-front-systemcenter:
+    image: registry.connextpaas.com/connextpaas/micro-front-systemcenter:20220808-bdfe3e6a
+    network_mode: "host"
+
+  micro-front-securitycenter:
+    image: registry.connextpaas.com/connextpaas/micro-front-securitycenter:20220725-8905f71d
+    network_mode: "host"
