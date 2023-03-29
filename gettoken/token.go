@@ -13,7 +13,8 @@ import (
 
 func GetTokenByDefault() string {
 	//TODO 改为从consul读取配置信息
-	addr := "https://cmp.cn-lghnh.com:9800/backend/service-s-authentication/v1/usermgmt/login"
+	//addr := "https://cmp.cn-lghnh.com:9800/backend/service-s-authentication/v1/usermgmt/login"
+	addr := "https://cmp.pernod-ricard-china.com/user/login"
 	userName := "super"
 	password := "Connext@1qaz@WSX"
 	js := "{\"user_name\":\"{{Name}}\",\"passwd\":\"{{Password}}\"}"

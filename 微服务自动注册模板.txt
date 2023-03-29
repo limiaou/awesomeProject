@@ -1,0 +1,41 @@
+Nginx
+
+{
+  "automated_environments_id": 1,
+  "create_order_list": {
+    "1": {
+      "T": "Nginx",
+      "V": {
+        "service_name": "micro-front-app",
+        "ports": [
+          {
+            "port": "9801",
+            "target_port": "9801",
+            "protocol": "TCP"
+          }
+        ],
+        "project_codebase_url": "https://msp-git.connext.com.cn/connext-micro-front/micro-front-app.git",
+        "config_list": {
+          "micro-front-app-on-premise-test": "/etc/nginx/"
+        }
+      }
+    }
+  },
+  "is_join_listener": 0
+}
+
+
+Golang
+{
+  "automated_environments_id": 1,
+  "create_order_list": {
+    "1": {
+      "T": "Golang",
+      "V": {
+        "service_name": "service-b-cloudmgmt",
+        "project_codebase_url": "https://msp-git.connext.com.cn/connext-go-service/service-b-cloudmgmt.git",
+      }
+    }
+  },
+  "is_join_listener": 0
+}
